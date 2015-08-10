@@ -8,15 +8,21 @@
 
 import UIKit
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+protocol APIControllerProtocol{
+    func didReceiveAPIResults(array: NSArray)
+}
+
+class SearchResultsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, APIControllerProtocol {
 
     @IBOutlet var appsTableView : UITableView! 
     var tableData = []
+    var api = APIController()
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        api.delegate = self
         // Do any additional setup after loading the view, typically from a nib.
-        searchString("JQ Software")
+        api.searchString("JQ Software")
     }
 
     override func didReceiveMemoryWarning() {
@@ -54,39 +60,24 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return cell
     }
     
-    func searchString(search: String){
-        
-        let searchStr = search.stringByReplacingOccurrencesOfString(" ", withString: "+", options: NSStringCompareOptions.CaseInsensitiveSearch, range: nil)
-        
-        if let escapedString = searchStr.stringByAddingPercentEscapesUsingEncoding(NSUTF8StringEncoding){
-            let urlPath = "http://itunes.apple.com/search?term=\(escapedString)&media=software"
-            let url = NSURL(string: urlPath)
-            let session = NSURLSession.sharedSession()
-            
-            let task = session.dataTaskWithURL(url!, completionHandler: {data, response, error -> Void in
-                println("Task complete")
-                if (error != nil){
-                    println("Error!!")
-                }
-                
-                var error : NSError?
-                if let jsonResults = NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions.MutableContainers, error: &error) as? NSDictionary {
-                    
-                    if(error != nil){
-                        println("Json failed to read")
-                    }
-                    
-                    if let jsonData : NSArray = jsonResults["results"] as? NSArray{
-                        dispatch_async(dispatch_get_main_queue(), {
-                            self.tableData = jsonData
-                            self.appsTableView!.reloadData()
-                        })
-                    }
-                }
-            })
-            // The task is just an object with all these properties set
-            // In order to actually make the web request, we need to "resume"
-            task.resume()
+    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+        // Get the row data for the selected row
+        if let rowData = self.tableData[indexPath.row] as? NSDictionary,
+            // Get the name of the track for this row
+            name = rowData["trackName"] as? String,
+            // Get the price of the track on this row
+            formattedPrice = rowData["formattedPrice"] as? String {
+                let alert = UIAlertController(title: name, message: formattedPrice, preferredStyle: .Alert)
+                alert.addAction(UIAlertAction(title: "Ok", style: .Default, handler: nil))
+                self.presentViewController(alert, animated: true, completion: nil)
         }
+    }
+    
+    func didReceiveAPIResults(array: NSArray) {
+        dispatch_async(dispatch_get_main_queue(), { () -> Void in
+            self.tableData = array
+            self.appsTableView.reloadData()
+            
+        })
     }
 }
